@@ -1,0 +1,627 @@
+pip install openpyxl
+
+import pandas as pd
+import psycopg2
+
+# Connect to database
+conn = psycopg2.connect(
+    dbname='group_project',
+    host='localhost',
+    port=5432,
+    user='postgres',
+    password='123'
+)
+
+# Read file
+data = pd.read_excel("FinalData.xlsx", engine='openpyxl')
+
+# Print the structure of the data
+print(data.info())
+
+cur = conn.cursor()
+
+# List of all tables you want to drop
+tables_to_drop = ["Customer", "Store", "Payment", "Orders"]  # Add more tables to the list as needed
+
+for table in tables_to_drop:
+    cur.execute(f"DROP TABLE IF EXISTS {table} CASCADE")
+
+conn.commit()
+
+##store
+store_data = pd.read_excel("FinalData.xlsx", sheet_name="Store")
+
+#if the transaction is aborted run this line
+#conn.rollback()
+
+create_store = """
+CREATE TABLE Store (
+    store_id INT PRIMARY KEY,
+    store_city VARCHAR(255),
+    store_street_address VARCHAR(255),
+    store_phone VARCHAR(15),
+    store_sqft INT
+);
+"""
+
+cur.execute(create_store)
+
+for index, row in store_data.iterrows():
+    cur.execute(
+        """
+        INSERT INTO Store (store_id, store_city, store_street_address, store_phone, store_sqft)
+        VALUES (%s, %s, %s, %s, %s);
+        """,  (row['store_id'],	row['store_city'],	row['store_street_address'],	row['store_phone'],	row['store_sqft'])
+
+    )
+
+conn.commit()
+
+##payment
+payment_data = pd.read_excel("FinalData.xlsx", sheet_name="Payment")
+
+conn.rollback()
+
+create_payment = """
+CREATE TABLE Payment (
+    payment_id INT PRIMARY KEY,
+    payment_type VARCHAR(50)
+);
+"""
+
+cur.execute(create_payment)
+
+for index, row in payment_data.iterrows():
+    cur.execute(
+        """
+        INSERT INTO Payment (payment_id, payment_type)
+        VALUES (%s, %s);
+        """,  (row['payment_id'],	row['Payment_Type'])
+
+    )
+
+conn.commit()
+
+##customer
+customer_data = pd.read_excel("FinalData.xlsx", sheet_name="Customer")
+
+conn.rollback()
+
+create_customer = """
+CREATE TABLE Customer (
+    customer_id INT PRIMARY KEY,
+    first_name VARCHAR(100),
+    last_name VARCHAR(100),
+    customer_address VARCHAR(255),
+    customer_city VARCHAR(100),
+    customer_state_province VARCHAR(100),
+    customer_postal_code VARCHAR(10),
+    birthdate DATE,
+    gender CHAR(1)
+);
+"""
+
+cur.execute(create_customer)
+
+for index, row in customer_data.iterrows():
+    cur.execute(
+        """
+        INSERT INTO Customer (customer_id, first_name, last_name, customer_address, customer_city, 
+                              customer_state_province, customer_postal_code, birthdate, gender)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s);
+        """,
+        (row['customer_id'], row['first_name'], row['last_name'], 
+         row['customer_address'], row['customer_city'], row['customer_state_province'], 
+         row['customer_postal_code'], row['birthdate'], row['gender'])
+    )
+
+# Commit the changes
+conn.commit()
+
+##membership
+membership_data = pd.read_excel("FinalData.xlsx", sheet_name="Membership")
+
+conn.rollback()
+create_membership = """
+    CREATE TABLE "Membership" (
+    membership_id BIGINT PRIMARY KEY,
+    customer_id INT,
+    first_name VARCHAR(255),
+    last_name VARCHAR(255),
+    member_type VARCHAR(255),
+    FOREIGN KEY (customer_id) REFERENCES Customer(customer_id)
+);
+"""
+
+cur.execute(create_membership)
+
+# Loop over each row in membership_data to insert the data into the Membership_info table
+for index, row in membership_data.iterrows():
+    cur.execute(
+        """
+        INSERT INTO "Membership" (membership_id, customer_id, first_name, last_name, member_type)
+        VALUES (%s, %s, %s, %s, %s);
+        """,  
+        (row['membership_id'], row['customer_id'], row['first_name'], row['last_name'], row['member_type'])
+    )
+
+# Commit the changes
+conn.commit()
+
+##product category
+product_category_data = pd.read_excel("FinalData.xlsx", sheet_name="Product_Category")
+
+conn.rollback()
+create_product_category = """
+CREATE TABLE "product_category" (
+    category_id INT PRIMARY KEY,
+    Product_line VARCHAR(255)
+);
+"""
+
+cur.execute(create_product_category)
+
+for index, row in product_category_data.iterrows():
+    cur.execute(
+        """
+        INSERT INTO "product_category" (category_id, Product_line)
+        VALUES (%s, %s);
+        """,  
+        (row['category_id'], row['Product line'])
+    )
+
+# Commit the changes
+conn.commit()
+
+##product
+product_data = pd.read_excel("FinalData.xlsx", sheet_name="Product")
+
+conn.rollback()
+
+# Create the Product table SQL statement
+create_product_table = """
+    CREATE TABLE "Product" (
+    product_id INT PRIMARY KEY,
+    product_brand VARCHAR(100),
+    product_name VARCHAR(255),
+    product_sku VARCHAR(15),
+    product_retail_price DECIMAL(10, 2),
+    product_cost DECIMAL(10, 2),
+    category_id INT,
+    FOREIGN KEY (category_id) REFERENCES product_category(category_id)
+);
+"""
+cur.execute(create_product_table)
+
+for index, row in product_data.iterrows():
+    cur.execute(
+        """
+        INSERT INTO "Product" (product_id, product_brand, product_name, product_sku, product_retail_price, product_cost, category_id)
+        VALUES (%s, %s, %s, %s, %s, %s, %s);
+        """,  
+        (row['product_id'], row['product_brand'], row['product_name'], row['product_sku'], 
+         row['product_retail_price'], row['product_cost'], row['category_id'])
+    )
+
+conn.commit()
+
+##vendor
+vendor_data = pd.read_excel("FinalData.xlsx", sheet_name="Vendor")
+
+conn.rollback()
+create_vendor = """
+CREATE TABLE "vendor" (
+    vendor_id INT PRIMARY KEY,
+    product_id INT,
+    vendor_name VARCHAR(255),
+    FOREIGN KEY (product_id) REFERENCES "Product"(product_id)
+);
+"""
+
+cur.execute(create_vendor)
+
+for index, row in vendor_data.iterrows():
+    cur.execute(
+        """
+        INSERT INTO "vendor" (vendor_id, product_id, vendor_name)
+        VALUES (%s, %s, %s);
+        """,  
+        (row['vendor_id'], row['product_id'], row['vendor_name'])
+    )
+
+conn.commit()
+
+##staff
+staff_data = pd.read_excel("FinalData.xlsx", sheet_name="Staff")
+
+create_staff = """
+CREATE TABLE "staff" (
+    staff_id CHAR(5) PRIMARY KEY,
+    store_id INT,
+    first_name VARCHAR(255),
+    last_name VARCHAR(255),
+    staff_salary INT,
+    gender CHAR(1),
+    contact_details VARCHAR(255),
+    FOREIGN KEY (store_id) REFERENCES Store(store_id)
+);
+"""
+
+cur.execute(create_staff)
+
+for index, row in staff_data.iterrows():
+    cur.execute(
+        """
+        INSERT INTO "staff" (staff_id, store_id, first_name, last_name, staff_salary, gender, contact_details)
+        VALUES (%s, %s, %s, %s, %s, %s, %s);
+        """,  
+        (row['staff_id'], row['store_id'], row['first_name'], row['last_name'], row['staff_salary'], row['gender'], row['contact_details'])
+    )
+
+conn.commit()
+
+##orders
+order_data = pd.read_excel("FinalData.xlsx", sheet_name="Orders")
+
+conn.rollback()
+
+# create order table
+cur = conn.cursor()
+
+create_order = """
+CREATE TABLE "Orders" (
+    Invoice_ID INT PRIMARY KEY,
+    Store INT,
+    Customer_ID INT,
+    Unit_Price DECIMAL(8, 2),
+    Quantity INT,
+    Tax_5 DECIMAL(8, 2),
+    Total DECIMAL(8, 2),
+    Date DATE,
+    Time TIME,
+    Payment_ID INT,
+    Delivery VARCHAR(3),
+    product_id INT,
+    product_name VARCHAR(100),
+    FOREIGN KEY (Store) REFERENCES Store(store_id),
+    FOREIGN KEY (Customer_ID) REFERENCES Customer(customer_id),
+    FOREIGN KEY (Payment_ID) REFERENCES Payment(payment_id),
+    FOREIGN KEY (product_id) REFERENCES "Product"(product_id)
+);
+"""
+
+# Execute the create statement
+cur.execute(create_order)
+
+# Loop over each row to insert the data
+for index, row in order_data.iterrows():
+    cur.execute(
+        """
+        INSERT INTO "Orders" (invoice_id, store, customer_id, unit_price, quantity, tax_5, total, date, time, payment_id, Delivery, product_id, product_name)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s);
+        """,  
+        (row['Invoice ID'], row['Store'], row['Customer_ID'], row['Unit price'], row['Quantity'], 
+         row['Tax_5'], row['Total'], row['Date'], row['Time'], row['Payment_ID'], row['Delivery'],
+         row['product_id'], row['product_name'])
+    )
+
+# Commit the changes
+conn.commit()
+
+##delivery
+delivery_data = pd.read_excel("FinalData.xlsx", sheet_name="Delivery")
+
+conn.rollback()
+#create first statement
+cur.execute("""
+   CREATE TABLE "Delivery" (
+   delivery_id INT PRIMARY KEY,
+   Invoice_ID INT,
+   Store INT,
+   Customer_ID INT,
+   Quantity INT
+);
+""")
+conn.commit()
+
+#Add FK for Invoice_ID
+cur.execute("""
+   ALTER TABLE "Delivery"
+   ADD CONSTRAINT fk_invoice
+   FOREIGN KEY (Invoice_ID) REFERENCES "Orders"(Invoice_ID);
+""")
+conn.commit()
+
+#Add FK for Store
+cur.execute("""
+   ALTER TABLE "Delivery"
+   ADD CONSTRAINT fk_store
+   FOREIGN KEY (Store) REFERENCES Store(store_id);
+""")
+conn.commit()
+
+#Add FK for customer_id
+cur.execute("""
+   ALTER TABLE "Delivery"
+   ADD CONSTRAINT fk_customer
+   FOREIGN KEY (Customer_ID) REFERENCES Customer(customer_id);
+""")
+conn.commit()
+
+#insert values
+for index, row in delivery_data.iterrows():
+    cur.execute(
+        """
+        INSERT INTO "Delivery" (delivery_id, invoice_id, Store, Customer_ID, Quantity)
+        VALUES (%s, %s, %s, %s, %s);
+        """,  
+        (int(row['delivery_id']), int(row['Invoice ID']), int(row['Store']), int(row['Customer_ID']), int(row['Quantity']))
+    )
+
+conn.commit()
+
+##transaction
+transaction_data = pd.read_excel("FinalData.xlsx", sheet_name="Transaction")
+
+conn.rollback()
+
+create_transaction = """
+CREATE TABLE "Transaction" (
+    Invoice_ID INT PRIMARY KEY,
+    Store INT,
+    Tax_5 DECIMAL(8, 2),
+    Total DECIMAL(8, 2),
+    Date DATE,
+    Time TIME,
+    Payment_ID INT,
+    FOREIGN KEY (Store) REFERENCES Store(store_id),
+    FOREIGN KEY (Payment_ID) REFERENCES Payment(payment_id)
+);
+"""
+
+cur.execute(create_transaction)
+
+for index, row in transaction_data.iterrows():
+    cur.execute(
+        """
+        INSERT INTO "Transaction" (Invoice_ID, Store, Tax_5, Total, Date, Time, Payment_ID)
+        VALUES (%s, %s, %s, %s, %s, %s, %s);
+        """,  
+        (row['Invoice ID'], row['Store'], row['Tax 5%'], row['Total'], 
+         row['Date'], row['Time'], row['Payment_ID'])
+    )
+
+
+conn.commit()
+
+##rating
+rating_data = pd.read_excel("FinalData.xlsx", sheet_name="Rating")
+
+conn.rollback()
+create_rating = """
+CREATE TABLE "rating" (
+    Invoice_ID INT PRIMARY KEY,
+    Customer_ID INT,
+    Rating DECIMAL(3,1),
+    FOREIGN KEY (Invoice_ID) REFERENCES "Orders"(Invoice_ID),
+    FOREIGN KEY (Customer_ID) REFERENCES Customer(customer_id)
+);
+"""
+
+cur.execute(create_rating)
+
+for index, row in rating_data.iterrows():
+    cur.execute(
+        """
+        INSERT INTO "rating" (Invoice_ID, Customer_ID, Rating)
+        VALUES (%s, %s, %s);
+        """,  
+        (row['Invoice ID'], row['Customer_ID'], row['Rating'])
+    )
+
+conn.commit()
+
+##inventory
+inventory_data = pd.read_excel("FinalData.xlsx", sheet_name="Inventory")
+
+#transform the data
+inventory_data['product_id'] = inventory_data['product_id'].astype(int)
+inventory_data['store_id'] = inventory_data['store_id'].astype(int)
+inventory_data['product_sku'] = inventory_data['product_sku'].astype(int)
+inventory_data['quantity'] = inventory_data['quantity'].astype(int)
+
+#create sql statement
+conn.rollback()
+create_inventory = """
+CREATE TABLE "inventory" (
+    product_id INT,
+    store_id INT,
+    product_sku BIGINT,
+    quantity INT,
+    PRIMARY KEY (product_id, store_id),
+    FOREIGN KEY (product_id) REFERENCES "Product"(product_id),
+    FOREIGN KEY (store_id) REFERENCES Store(store_id)
+);
+"""
+
+cur.execute(create_inventory)
+
+for index, row in inventory_data.iterrows():
+    cur.execute(
+        """
+        INSERT INTO "inventory" (product_id, store_id, product_sku, quantity)
+        VALUES (%s, %s, %s, %s);
+        """,  
+        (int(row['product_id']), int(row['store_id']), int(row['product_sku']), int(row['quantity']))
+    )
+
+conn.commit()
+
+##financial cost
+cost_data = pd.read_excel("FinalData.xlsx", sheet_name="Cost")
+
+conn.rollback()
+
+create_financial_cost = """
+CREATE TABLE "Cost" (
+    Invoice_ID INT,
+    Store INT,
+    Date DATE,
+    Total DECIMAL(10, 4),
+    cost DECIMAL(10, 2),
+    PRIMARY KEY (Invoice_ID),
+    FOREIGN KEY (Store) REFERENCES Store(store_id)
+);
+"""
+
+cur.execute(create_financial_cost)
+
+for index, row in cost_data.iterrows():
+    cur.execute(
+        """
+        INSERT INTO "Cost" (Invoice_ID, Store, Date, Total, cost)
+        VALUES (%s, %s, %s, %s, %s);
+        """,  
+        (row['Invoice ID'], row['Store'], row['Date'], row['Total'], row['cost'])
+    )
+
+conn.commit()
+
+##financial income
+income_data = pd.read_excel("FinalData.xlsx", sheet_name="Income")
+
+conn.rollback()
+
+create_financial_income = """
+CREATE TABLE "Income" (
+    Invoice_ID INT,
+    Store INT,
+    Date DATE,
+    Total DECIMAL(10, 4),
+    Gross_Income DECIMAL(10, 2),
+    PRIMARY KEY (Invoice_ID),
+    FOREIGN KEY (Store) REFERENCES Store(store_id)
+);
+"""
+
+cur.execute(create_financial_income)
+
+for index, row in income_data.iterrows():
+    cur.execute(
+        """
+        INSERT INTO "Income" (Invoice_ID, Store, Date, Total, Gross_Income)
+        VALUES (%s, %s, %s, %s, %s);
+        """,  
+        (row['Invoice ID'], row['Store'], row['Date'], row['Total'], row['gross income'])
+    )
+
+conn.commit()
+
+###Analytical procedure
+##1. Performance of stores - financial incomes
+conn.rollback()
+cur.execute('''
+    SELECT store, SUM(Total - cost) as NetIncome 
+    FROM "Cost"
+    GROUP BY store 
+    ORDER BY NetIncome DESC;
+''')
+
+results = cur.fetchall()
+
+for row in results:
+    print(row)
+
+##2. best product sales by volume
+conn.rollback()
+cur.execute('''
+    SELECT product_name, SUM(quantity) AS total_sales_volume
+    FROM "Orders"
+    GROUP BY product_name
+    ORDER BY total_sales_volume DESC
+    LIMIT 1;
+''')
+
+results = cur.fetchall()
+
+for row in results:
+    print(row)
+
+##3. Vendor - best brands
+conn.rollback()
+cur.execute('''
+    SELECT p.product_brand, SUM(o.quantity) as total_volume
+    FROM "Product" p
+    JOIN "Orders" o ON p.product_id = o.product_id
+    GROUP BY p.product_brand
+    ORDER BY total_volume DESC
+    LIMIT 1;
+''')
+
+results = cur.fetchall()
+
+for row in results:
+    print(row)
+
+##4. Best category
+conn.rollback()
+cur.execute('''
+    SELECT pc.Product_line, SUM(o.quantity) as total_volume
+    FROM "Product" p
+    JOIN "Orders" o ON p.product_id = o.product_id
+    JOIN product_category pc ON p.category_id = pc.category_id
+    GROUP BY pc.Product_line
+    ORDER BY total_volume DESC
+    LIMIT 1;
+''')
+
+results = cur.fetchall()
+
+for row in results:
+    print(row)
+
+##5. The average rating of membership
+conn.rollback()
+cur.execute('''
+    SELECT m.member_type, AVG(r.rating) as average_rating
+    FROM "Membership" m
+    JOIN rating r ON m.customer_id = r.customer_id
+    GROUP BY m.member_type
+    ORDER BY average_rating DESC;
+''')
+
+results = cur.fetchall()
+
+for row in results:
+    print(row)
+
+##6. Average purchase of each membership level
+conn.rollback()
+cur.execute('''
+    SELECT m.member_type, ROUND(AVG(o.Total), 2) as average_purchase
+    FROM "Membership" m
+    JOIN "Orders" o ON m.customer_id = o.customer_id
+    GROUP BY m.member_type
+    ORDER BY average_purchase DESC;
+''')
+
+results = cur.fetchall()
+
+for row in results:
+    print(row)
+
+##7. Which is the most popular product brand? (repeat the second analytical question)
+conn.rollback()
+cur.execute('''
+    SELECT p.product_brand, SUM(o.quantity) as total_volume
+    FROM "Product" p
+    JOIN "Orders" o ON p.product_id = o.product_id
+    GROUP BY p.product_brand
+    ORDER BY total_volume DESC
+    LIMIT 1;
+''')
+
+results = cur.fetchall()
+
+for row in results:
+    print(row)
